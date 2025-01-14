@@ -37,6 +37,7 @@ async function run() {
     await client.connect();
    
 const userCollection = client.db("application").collection("users")
+const HrAdminCollection = client.db("application").collection("Hr-Admin")
 
 app.post('/users',async(req,res)=>{
 const user = req.body;
@@ -49,6 +50,16 @@ const result = await userCollection.insertOne(user);
 res.send(result)
 })
 
+app.post("/hrAdmin",async(req,res)=>{
+  const hr=req.body;
+  const query ={email :hr.email}
+const exist=await HrAdminCollection.findOne(query)
+if(exist){
+  return res.send({message:"user already exist in db",insertedId:null})
+}
+const result = await HrAdminCollection.insertOne(hr);
+res.send(result)
+})
 
 // // generate token  jwt
 
