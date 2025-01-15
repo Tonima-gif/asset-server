@@ -68,8 +68,10 @@ next()
 }
 
 
-app.get("/allUser",verifyToken,async(req,res)=>{
-const allUsers = await userCollection.find().toArray()
+app.get("/allUser/:roleUser",verifyToken,async(req,res)=>{
+  const roleUser = req.params.roleUser
+  const query ={role:roleUser}
+const allUsers = await userCollection.find(query).toArray()
 res.send(allUsers)
 })
 
@@ -107,13 +109,29 @@ app.get("/hr/:email",verifyToken,async(req,res)=>{
 app.post('/create-payment-intent',verifyToken,async(req,res)=>{
   const price=req.body.price
   const amount = parseInt(price * 100)
-console.log(amount,"inside stripe")
   const paymentIntent = await stripe.paymentIntents.create({
     amount:amount,
     currency:'usd',
 payment_method_types:["card"]
   })
   res.send({clientSecret : paymentIntent.client_secret})
+})
+
+app.put("/memberUpdate/:email",verifyToken,verifyAdmin,async(req,res)=>{
+ const email =req.params.email
+ const queryEmail={email:email}
+ const{member}=req.query
+ if(!member){
+  return res.send({message:"queryMember nai"})
+ }
+ if(member<0){
+  return res.send({message:"queryMember nai is 0"})
+ }
+const update={
+  $set:{addMember:parseInt(member)}
+}
+const result = await userCollection.updateOne(queryEmail,update)
+res.send(result)
 })
 
 app.patch("/hrRoleUpdate/:email",verifyToken,async(req,res)=>{
