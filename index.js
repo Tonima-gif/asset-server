@@ -3,18 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const jwt =require('jsonwebtoken')
-// const cookieParser=require('cookie-parser')
+const stripe=require('stripe')(process.env.SECRET_PAYMENT_KEY)
 const port = process.env.PORT || 5000 ;
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 
-// const corsOptions ={
-//     origin:['http://localhost:5173'],
-//     credentials:true,
-//     optionalSuccessStatus:200
-//   }
-  
 
 app.use(cors())
 app.use(express.json())
@@ -102,7 +96,7 @@ res.send(result)
 })
 
 
-app.get("/hr/:email",async(req,res)=>{
+app.get("/hr/:email",verifyToken,async(req,res)=>{
   const email= req.params.email
   const query={email:email}
   const result = await userCollection.findOne(query)
@@ -110,18 +104,27 @@ app.get("/hr/:email",async(req,res)=>{
 })
 
 
-// app.post("/hrAdmin",async(req,res)=>{
-//   const hr=req.body;
-//   const query ={email :hr.email}
-// const exist=await HrAdminCollection.findOne(query)
-// if(exist){
-//   return res.send({message:"user already exist in db",insertedId:null})
-// }
-// const result = await HrAdminCollection.insertOne(hr);
-// res.send(result)
-// })
+app.post('/create-payment-intent',verifyToken,async(req,res)=>{
+  const price=req.body.price
+  const amount = parseInt(price * 100)
+console.log(amount,"inside stripe")
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount:amount,
+    currency:'usd',
+payment_method_types:["card"]
+  })
+  res.send({clientSecret : paymentIntent.client_secret})
+})
 
-
+app.patch("/hrRoleUpdate/:email",verifyToken,async(req,res)=>{
+const email =req.params.email
+const query={email:email}
+const update={
+  $set:{role:"HrAdmin",pack:0}
+}
+const result = await userCollection.updateOne(query,update)
+res.send(result)
+})
 
 
     await client.db("admin").command({ ping: 1 });
