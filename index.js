@@ -37,7 +37,7 @@ async function run() {
     await client.connect();
    
 const userCollection = client.db("application").collection("users")
-const HrAdminCollection = client.db("application").collection("Hr-Admin")
+// const HrAdminCollection = client.db("application").collection("Hr-Admin")
 
 
 // generate token  jwt
@@ -50,7 +50,7 @@ app.post('/jwt',(req,res)=>{
 
 const verifyToken=(req,res,next)=>{
   if(!req.headers.authorization){
-    return res.status(403).send({message:"forbidden access token"})
+    return res.status(401).send({message:"unAuthorize access token"})
   }
   const token = req.headers.authorization.split(' ')[1];
 jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
@@ -62,19 +62,27 @@ jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
 })
 }
 
+const verifyAdmin=async(req,res,next)=>{
+const email =req.decoded.email
+const query ={email:email}
+const user =await userCollection.findOne(query)
+const isAdmin=user?.role=="HrAdmin"
+if(!isAdmin){
+  return res.status(403).send({message:"forbidden access Admin"})
+}
+next()
+}
+
 
 app.get("/allUser",verifyToken,async(req,res)=>{
 const allUsers = await userCollection.find().toArray()
 res.send(allUsers)
 })
 
-app.get("/admin/:email", async(req,res)=>{
+app.get("/admin/:email",async(req,res)=>{
   const email = req.params.email
-  // if(email !== req.decoded.email){
-  //   return res.status(401).send({message:"unAuthorization access token"})
-  // }
   const query = {email:email}
-  const user = await HrAdminCollection.findOne(query)
+  const user = await userCollection.findOne(query)
 let admin=false
 if(user){
   admin = user?.role=="HrAdmin"
@@ -93,16 +101,25 @@ const result = await userCollection.insertOne(user);
 res.send(result)
 })
 
-app.post("/hrAdmin",async(req,res)=>{
-  const hr=req.body;
-  const query ={email :hr.email}
-const exist=await HrAdminCollection.findOne(query)
-if(exist){
-  return res.send({message:"user already exist in db",insertedId:null})
-}
-const result = await HrAdminCollection.insertOne(hr);
-res.send(result)
+
+app.get("/hr/:email",async(req,res)=>{
+  const email= req.params.email
+  const query={email:email}
+  const result = await userCollection.findOne(query)
+  res.send(result)
 })
+
+
+// app.post("/hrAdmin",async(req,res)=>{
+//   const hr=req.body;
+//   const query ={email :hr.email}
+// const exist=await HrAdminCollection.findOne(query)
+// if(exist){
+//   return res.send({message:"user already exist in db",insertedId:null})
+// }
+// const result = await HrAdminCollection.insertOne(hr);
+// res.send(result)
+// })
 
 
 
