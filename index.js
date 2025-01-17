@@ -32,6 +32,7 @@ async function run() {
    
 const userCollection = client.db("application").collection("users")
 const assetsCollection = client.db("application").collection("assets")
+const requestCollection = client.db("application").collection("requests")
 
 
 // generate token  jwt
@@ -85,6 +86,18 @@ if(user){
 }
 res.send({admin})
 })
+app.get("/employee/:email",async(req,res)=>{
+  const email = req.params.email
+  const query = {email:email}
+  const user = await userCollection.findOne(query)
+let employee=false
+if(user){
+  employee = user?.role=="employee"
+}
+res.send({employee})
+})
+
+
 
 app.get('/asset/:email',verifyToken,async(req,res)=>{
   const email=req.params.email
@@ -102,11 +115,62 @@ if(search){
   res.send(result)
 })
 
+app.get('/employeeAssets/:email',verifyToken,async(req,res)=>{
+  const email=req.params.email
+  let query={addHrEmail:email}
+  const sort=req.query.sort
+  const search=req.query.search
+let options={}
+if(search){
+  query={productName:{$regex:search ,$options:'i'}}
+}
+  if(sort){
+    options={sort : {productQuantity : -1}}
+  }
+  const result= await assetsCollection.find(query,options).toArray()
+  res.send(result)
+})
+
+app.get('/employeeRequestsAssets/:email',verifyToken,async(req,res)=>{
+  const email=req.params.email
+  let query={requesterEmail:email}
+  const search=req.query.search
+if(search){
+  query={itemName:{$regex:search ,$options:'i'}}
+}
+  const result= await requestCollection.find(query).toArray()
+  res.send(result)
+})
+
+
+
 app.get('/update/:id',verifyToken,verifyAdmin,async(req,res)=>{
   const id =req.params.id
   const query={_id : new ObjectId(id)}
   const result=await assetsCollection.findOne(query)
   res.send(result)
+})
+
+app.get('/employeeInfo/:email',verifyToken,async(req,res)=>{
+  const email=req.params.email
+  const query ={HrEmail:email}
+  const result = await userCollection.find(query).toArray()
+  res.send(result)
+})
+
+app.get('/oneEmployee/:email',async(req,res)=>{
+  const email =req.params.email
+  const query={email:email}
+  const result= await userCollection.findOne(query)
+  res.send(result)
+})
+
+app.get('/sameTeam/:email',async(req,res)=>{
+const email=req.params.email
+const query={HrEmail:email}
+const result=await userCollection.find(query).toArray()
+res.send(result)
+
 })
 
 app.post('/users',async(req,res)=>{
@@ -124,6 +188,12 @@ app.post('/addAsset',verifyToken,verifyAdmin,async(req,res)=>{
   const asset=req.body
   const result=await assetsCollection.insertOne(asset)
   res.send(result)
+})
+
+app.post('/addRequests',verifyToken,async(req,res)=>{
+const itemInfo=req.body
+const result=await requestCollection.insertOne(itemInfo)
+res.send(result)
 })
 
 app.get("/hr/:email",verifyToken,async(req,res)=>{
@@ -222,6 +292,45 @@ app.delete('/assetDelete/:id',verifyToken,verifyAdmin,async(req,res)=>{
   res.send(result)
 })
 
+app.delete('/requestDelete/:id',verifyToken,async(req,res)=>{
+  const id = req.params.id
+  const query={_id : new ObjectId(id)}
+  const result = await requestCollection.deleteOne(query)
+  res.send(result)
+})
+
+app.patch('/employeeDelete/:id',verifyToken,verifyAdmin,async(req,res)=>{
+const id=req.params.id
+const query={_id :new ObjectId(id)}
+const emailQuery=req.body.emailQuery
+const emailHr={email : emailQuery}
+const updatedDoc={
+  $inc:{addMember : +1,employeeMember : - 1}
+}
+const result2 = await userCollection.updateOne(emailHr,updatedDoc)
+
+const updatedDoc2={
+  $set :{HrEmail:"" ,role:"user"}
+}
+const result = await userCollection.updateOne(query,updatedDoc2)
+res.send(result)
+
+})
+app.patch('/requestReturn/:id',verifyToken,async(req,res)=>{
+const id=req.params.id
+const query={_id :new ObjectId(id)}
+const updatedDoc2={
+  $inc :{productQuantity: + 1}
+}
+const query2={itemId:id}
+const updated={
+  $set:{request : "returned"}
+}
+const result = await assetsCollection.updateOne(query,updatedDoc2)
+const result2 = await requestCollection.updateOne(query2,updated)
+res.send(result)
+
+})
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
