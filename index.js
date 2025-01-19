@@ -27,9 +27,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-   
+
 const userCollection = client.db("application").collection("users")
 const assetsCollection = client.db("application").collection("assets")
 const requestCollection = client.db("application").collection("requests")
@@ -69,7 +67,7 @@ next()
 }
 
 
-app.get("/allUser/:roleUser",verifyToken,async(req,res)=>{
+app.get("/allUser/:roleUser",async(req,res)=>{
   const roleUser = req.params.roleUser
   const query ={role:roleUser}
 const allUsers = await userCollection.find(query).toArray()
@@ -97,9 +95,7 @@ if(user){
 res.send({employee})
 })
 
-
-
-app.get('/asset/:email',verifyToken,async(req,res)=>{
+app.get('/asset/:email',async(req,res)=>{
   const email=req.params.email
   let query={addHrEmail:email}
   const sort=req.query.sort
@@ -115,7 +111,7 @@ if(search){
   res.send(result)
 })
 
-app.get('/employeeAssets/:email',verifyToken,async(req,res)=>{
+app.get('/employeeAssets/:email',async(req,res)=>{
   const email=req.params.email
   let query={addHrEmail:email}
   const sort=req.query.sort
@@ -131,7 +127,7 @@ if(search){
   res.send(result)
 })
 
-app.get('/employeeRequestsAssets/:email',verifyToken,async(req,res)=>{
+app.get('/employeeRequestsAssets/:email',async(req,res)=>{
   const email=req.params.email
   let query={requesterEmail:email}
   const search=req.query.search
@@ -142,6 +138,13 @@ if(search){
   res.send(result)
 })
 
+app.get('/sortRequest/:email',async(req,res)=>{
+  const email=req.params.email
+  const query={requesterEmail:email}
+  let options={sort : {requestDate : -1}}
+  const result = await requestCollection.find(query,options).toArray()
+res.send(result)
+})
 
 
 app.get('/update/:id',verifyToken,verifyAdmin,async(req,res)=>{
@@ -173,6 +176,17 @@ res.send(result)
 
 })
 
+app.get('/allRequestsForHr/:email',verifyToken,verifyAdmin,async(req,res)=>{
+const email=req.params.email
+let query={itemHrEmail:email}
+const search=req.query.search
+if(search){
+  query={requesterName:{$regex:search ,$options:'i'}}
+}
+const result= await requestCollection.find(query).toArray()
+res.send(result)
+})
+
 app.post('/users',async(req,res)=>{
 const user = req.body;
 const query ={email :user.email}
@@ -196,13 +210,37 @@ const result=await requestCollection.insertOne(itemInfo)
 res.send(result)
 })
 
-app.get("/hr/:email",verifyToken,async(req,res)=>{
+app.patch('/approved/:id',verifyToken,verifyAdmin,async(req,res)=>{
+  const id=req.params.id
+  const itemId=req.body.itemId
+  const query={_id : new ObjectId(id)}
+  const query2={_id : new ObjectId(itemId)}
+  const update={
+    $set:{status : "approved" ,approvalDate:new Date()}
+  }
+  const updatedDoc={
+    $inc:{productQuantity : -1}
+  }
+  const result = await assetsCollection.updateOne(query2,updatedDoc)
+  const result2 = await requestCollection.updateOne(query,update)
+  res.send(result2)
+})
+app.patch('/reject/:id',verifyToken,verifyAdmin,async(req,res)=>{
+  const id=req.params.id
+  const query={_id : new ObjectId(id)}
+  const update={
+    $set:{status : "rejected"}
+  }
+  const result2 = await requestCollection.updateOne(query,update)
+  res.send(result2)
+})
+
+app.get("/hr/:email",async(req,res)=>{
   const email= req.params.email
   const query={email:email}
   const result = await userCollection.findOne(query)
   res.send(result)
 })
-
 
 app.post('/create-payment-intent',verifyToken,async(req,res)=>{
   const price=req.body.price
@@ -332,11 +370,9 @@ res.send(result)
 
 })
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+   
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+
   }
 }
 run().catch(console.dir);
