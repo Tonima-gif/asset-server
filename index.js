@@ -137,7 +137,7 @@ if(search){
   const result= await requestCollection.find(query).toArray()
   res.send(result)
 })
-
+// get paths
 app.get('/sortRequest/:email',async(req,res)=>{
   const email=req.params.email
   const query={requesterEmail:email}
